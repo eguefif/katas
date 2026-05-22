@@ -10,8 +10,6 @@ defmodule Stock do
 end
 
 defmodule RateProvider do
-  @currencies [:eur, :doll]
-
   @eur %{petroleum: 100, lng: 95}
   @doll %{petroleum: 105, lng: 90}
 
@@ -19,6 +17,7 @@ defmodule RateProvider do
     case currency do
       :eur -> Map.fetch(@eur, stock)
       :doll -> Map.fetch(@doll, stock)
+      _ -> :unhandled_currency
     end
   end
 end
@@ -35,8 +34,9 @@ defmodule Wallet do
         } = _wallet
       ) do
     case rate_provider.(currency, stock_type) do
-      {:ok, rate} -> quantity * rate
-      _ -> nil
+      {:ok, rate} -> {:ok, quantity * rate}
+      :error -> :unhandled_stock
+      :unhandled_currency -> :unhandled_currency
     end
   end
 end
