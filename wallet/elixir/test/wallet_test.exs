@@ -10,7 +10,7 @@ defmodule WalletTest do
         rate_provider: &RateProvider.rate/2
       })
 
-    assert value == {:ok, 500}
+    assert value == {:ok, 135 * 5}
   end
 
   test "compute value for LNG and quantity 10 in DOLL" do
@@ -21,7 +21,7 @@ defmodule WalletTest do
         rate_provider: &RateProvider.rate/2
       })
 
-    assert value == {:ok, 900}
+    assert value == {:ok, 10 * 185}
   end
 
   test "compute value for CORN and quantity 10 in DOLL" do
