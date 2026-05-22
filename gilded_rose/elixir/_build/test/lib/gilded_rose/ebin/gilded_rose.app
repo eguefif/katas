@@ -1,0 +1,1 @@
+{application,gilded_rose,[{modules,['Elixir.GildedRose','Elixir.GildedRose.TextTestFixture','Elixir.Item','Elixir.ItemWrapper']},{optional_applications,[]},{applications,[kernel,stdlib,elixir]},{description,"gilded_rose"},{registered,[]},{vsn,"0.0.1"}]}.
