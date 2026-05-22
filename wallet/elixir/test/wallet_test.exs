@@ -7,9 +7,9 @@ defmodule WalletTest do
       Wallet.compute_value(%Wallet{
         stock: %Stock{quantity: 5, type: :petroleum},
         currency: :eur,
-        rate_provider: 3
+        rate_provider: &RateProvider.rate/2
       })
 
-    assert value == 15
+    assert value == 500
   end
 end
