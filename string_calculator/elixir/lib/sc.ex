@@ -36,9 +36,21 @@ defmodule SC do
   end
 
   defp add_numbers(numbers_list) when is_list(numbers_list) do
-    numbers_list
-    |> Enum.reduce(0, fn x, acc -> acc + x end)
-    |> from_num_to_string
+    with {:ok, numbers_list} <- check_list(numbers_list) do
+      numbers_list
+      |> Enum.reduce(0, fn x, acc -> acc + x end)
+      |> from_num_to_string
+    else
+      {:error, msg} -> {:error, msg}
+    end
+  end
+
+  def check_list(numbers) when is_list(numbers) do
+    numbers
+    |> Enum.find_index(fn x -> x == :error end)
+    |> then(fn x ->
+      if x == nil, do: {:ok, numbers}, else: {:error, "Elements #{x} is not a number."}
+    end)
   end
 
   defp from_num_to_string(number) do

@@ -32,4 +32,9 @@ defmodule SCTest do
     assert result >= "12.3"
     assert result <= "12.5"
   end
+
+  test "Returns an error if using 3,2, a" do
+    result = SC.add("3,2,a")
+    assert result == {:error, "Elements 2 is not a number."}
+  end
 end
