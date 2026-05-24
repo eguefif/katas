@@ -17,6 +17,11 @@ defmodule SCTest do
     assert result == "8"
   end
 
+  test "Add integer 32, 5,100" do
+    {:ok, result} = SC.add("32, 5,100")
+    assert result == "137"
+  end
+
   test "Add float 3.2, 5" do
     {:ok, result} = SC.add("3.2,5")
     assert result == "8.2"
@@ -35,6 +40,11 @@ defmodule SCTest do
 
   test "Returns an error if using 3,2, a" do
     result = SC.add("3,2,a")
-    assert result == {:error, "Elements 2 is not a number."}
+    assert result == {:error, "Number expected but 'a' was found at position 4."}
+  end
+
+  test "Returns an error if using 3,2,\n5" do
+    result = SC.add("3,2,\n52")
+    assert result == {:error, "Number expected but '\n' was found at position 4."}
   end
 end
