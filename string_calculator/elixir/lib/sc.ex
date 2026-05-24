@@ -38,16 +38,11 @@ defmodule SC do
       )
 
   def tokenize(input, tokens, %Token{} = current_token, _) when input == [] do
-    IO.inspect(current_token)
-    IO.inspect(tokens)
     {:ok, [current_token | tokens]}
   end
 
   def tokenize(input, tokens, %Token{} = current_token, position) do
     [hd | tl] = input
-
-    IO.inspect(current_token)
-    IO.inspect(tokens)
 
     current_token =
       if current_token.value == "" do
@@ -56,43 +51,40 @@ defmodule SC do
         current_token
       end
 
-    case hd do
-      "," ->
-        tokenize(
-          tl,
-          [current_token | tokens],
-          %Token{value: "", position: position, type: :none},
-          position + 1
-        )
+    cond do
+      hd == "," || hd == "\n" ->
+        if List.first(tl) != "," && List.first(tl) != "\n" do
+          tokenize(
+            tl,
+            [current_token | tokens],
+            %Token{value: "", position: position, type: :none},
+            position + 1
+          )
+        else
+          tokens = [%Token{value: List.first(tl), position: position + 1, type: :error} | tokens]
+          {:error, tokens}
+        end
 
-      "\n" ->
-        tokenize(
-          tl,
-          [current_token | tokens],
-          %Token{value: "", position: position, type: :none},
-          position + 1
-        )
-
-      " " ->
+      hd == " " ->
         tokenize(tl, tokens, current_token, position + 1)
 
-      val when val >= <<48>> and val <= <<57>> ->
+      # 48 => '0' and 57 => '9'
+      hd >= <<48>> && hd <= <<57>> ->
         new_value = current_token.value <> hd
         tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
 
-      val when val == <<46>> ->
+      # 46 => '.'
+      hd == <<46>> ->
         new_value = current_token.value <> hd
         tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
 
-      val ->
-        tokens = [%Token{value: val, position: position, type: :error} | tokens]
+      true ->
+        tokens = [%Token{value: hd, position: position, type: :error} | tokens]
         {:error, tokens}
     end
   end
 
   defp to_numbers_list(numbers) do
-    IO.inspect(numbers)
-
     numbers
     |> Enum.filter(fn %Token{type: type} = _ -> type != :error end)
     |> Enum.map(& &1.value)

@@ -47,4 +47,9 @@ defmodule SCTest do
     result = SC.add("3,2,\n52")
     assert result == {:error, "Number expected but '\n' was found at position 4."}
   end
+
+  test "Returns an error if using 3,2\n,5" do
+    result = SC.add("3,2\n,52")
+    assert result == {:error, "Number expected but ',' was found at position 4."}
+  end
 end
