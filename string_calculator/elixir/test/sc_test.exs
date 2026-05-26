@@ -52,4 +52,24 @@ defmodule SCTest do
     result = SC.add("3,2\n,52")
     assert result == {:error, "Number expected but ',' was found at position 4."}
   end
+
+  test "tokenizer" do
+    result = SC.tokenize("3,2,12.15\n32,21")
+
+    assert result ==
+             {:ok,
+              [
+                %Token{value: "3", position: 0, type: :num},
+                %Token{value: ",", position: 1, type: :sep},
+                %Token{value: "2", position: 2, type: :num},
+                %Token{value: ",", position: 3, type: :sep},
+                %Token{value: "12.15", position: 4, type: :num},
+                %Token{value: "\n", position: 9, type: :sep},
+                %Token{value: "32", position: 10, type: :num},
+                %Token{value: ",", position: 12, type: :sep},
+                %Token{value: "21", position: 13, type: :num}
+              ]}
+  end
+
+  # TODO: Add test to check tokenizer errors
 end

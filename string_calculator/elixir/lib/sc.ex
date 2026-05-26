@@ -13,12 +13,10 @@ defmodule SC do
     graphemes = String.graphemes(input)
 
     with {:ok, tokens} <- tokenize(graphemes),
-         {:ok, numbers} <- to_numbers_list(tokens) do
-      numbers
-      |> add_numbers
-      |> from_num_to_string
+         :ok <- check_tokens(tokens) do
+      tokens |> add_numbers |> from_num_to_string
     else
-      {:error, tokens} ->
+      {:tokenizer_error, tokens} ->
         Enum.filter(tokens, fn %Token{type: type} ->
           if type == :error, do: true, else: false
         end)
@@ -27,6 +25,13 @@ defmodule SC do
         end)
         |> Enum.join("\n")
         |> then(&{:error, &1})
+
+      {:check_error, errors} ->
+        Enum.join(errors, "\n")
+        |> then(&{:error, &1})
+
+      _ ->
+        :unexpected_error
     end
   end
 
@@ -37,66 +42,130 @@ defmodule SC do
         position \\ 0
       )
 
-  def tokenize(input, tokens, %Token{} = current_token, _) when input == [] do
-    {:ok, [current_token | tokens]}
+  def tokenize(input, _tokens, _current_token, _position)
+      when is_bitstring(input) do
+    input
+    |> String.graphemes()
+    |> tokenize()
   end
 
-  def tokenize(input, tokens, %Token{} = current_token, position) do
-    [hd | tl] = input
+  def tokenize(input, tokens, %Token{} = current_token, _) when input == [] do
+    tokens = tokens ++ [current_token]
 
-    current_token =
-      if current_token.value == "" do
-        %Token{current_token | position: position}
-      else
-        current_token
-      end
-
-    cond do
-      hd == "," || hd == "\n" ->
-        if List.first(tl) != "," && List.first(tl) != "\n" do
-          tokenize(
-            tl,
-            [current_token | tokens],
-            %Token{value: "", position: position, type: :none},
-            position + 1
-          )
-        else
-          tokens = [%Token{value: List.first(tl), position: position + 1, type: :error} | tokens]
-          {:error, tokens}
-        end
-
-      hd == " " ->
-        tokenize(tl, tokens, current_token, position + 1)
-
-      # 48 => '0' and 57 => '9'
-      hd >= <<48>> && hd <= <<57>> ->
-        new_value = current_token.value <> hd
-        tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
-
-      # 46 => '.'
-      hd == <<46>> ->
-        new_value = current_token.value <> hd
-        tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
-
-      true ->
-        tokens = [%Token{value: hd, position: position, type: :error} | tokens]
-        {:error, tokens}
+    if Enum.any?(tokens, &(&1.type == :error)) do
+      {:tokenizer_error, tokens}
+    else
+      {:ok, tokens}
     end
   end
 
-  defp to_numbers_list(numbers) do
-    numbers
-    |> Enum.filter(fn %Token{type: type} = _ -> type != :error end)
-    |> Enum.map(& &1.value)
-    |> Enum.map(&String.trim/1)
-    |> Enum.map(&to_number/1)
-    |> then(fn numbers ->
-      if Enum.any?(numbers, &is_tuple/1) do
-        {:num_error, numbers}
+  def tokenize(input, tokens, %Token{} = current_token, position) when is_list(input) do
+    [hd | tl] = input
+
+    case hd do
+      "," when current_token.value != "" ->
+        tokenize(
+          tl,
+          tokens ++ [current_token, %Token{value: ",", position: position, type: :sep}],
+          Token.new(position + 1),
+          position + 1
+        )
+
+      "\n" when current_token.value != "" ->
+        tokenize(
+          tl,
+          tokens ++ [current_token, %Token{value: "\n", position: position, type: :sep}],
+          Token.new(position + 1),
+          position + 1
+        )
+
+      "," ->
+        tokenize(
+          tl,
+          tokens ++ [%Token{value: ",", position: position, type: :sep}],
+          Token.new(position + 1),
+          position + 1
+        )
+
+      "\n" ->
+        tokenize(
+          tl,
+          tokens ++ [%Token{value: "\n", position: position, type: :sep}],
+          Token.new(position + 1),
+          position + 1
+        )
+
+      " " ->
+        tokenize(tl, tokens, current_token, position + 1)
+
+      hd ->
+        cond do
+          # 48 => '0' and 57 => '9'
+          hd >= <<48>> && hd <= <<57>> ->
+            new_value = current_token.value <> hd
+            tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
+
+          # 46 => '.'
+          hd == <<46>> ->
+            new_value = current_token.value <> hd
+            tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
+
+          true ->
+            tokens = tokens ++ [%Token{value: hd, position: position, type: :error}]
+
+            tokenize(
+              tl,
+              tokens,
+              Token.new(position + 1),
+              position + 1
+            )
+        end
+    end
+  end
+
+  defp check_tokens(tokens, errors \\ [])
+
+  defp check_tokens(tokens, errors) when tokens == [] and errors == [], do: :ok
+
+  defp check_tokens(tokens, errors) when tokens == [] do
+    {:check_error, errors}
+  end
+
+  defp check_tokens([last_element], errors) do
+    errors =
+      if Enum.member?([",", "\n"], last_element) do
+        errors ++ ["Number expected but EOF was found at position #{last_element.position}."]
       else
-        {:ok, numbers}
+        errors
       end
-    end)
+
+    check_tokens([], errors)
+  end
+
+  defp check_tokens(tokens, errors) when length(tokens) >= 2 do
+    [hd | tl] = tokens
+    [sep | tl] = tl
+
+    errors =
+      case {hd.type, sep.type} do
+        {:num, :sep} ->
+          errors
+
+        {:sep, _} ->
+          errors ++
+            [
+              "Number expected but '#{hd.value}' was found at position #{hd.position}."
+            ]
+      end
+
+    check_tokens(tl, errors)
+  end
+
+  defp add_numbers(numbers_list) do
+    numbers_list
+    |> Enum.filter(&(&1.type == :num))
+    |> Enum.map(&to_number(&1.value))
+    |> Enum.sum()
   end
 
   defp to_number(number_str) do
@@ -113,21 +182,6 @@ defmodule SC do
       true ->
         {:error, number_str}
     end
-  end
-
-  defp add_numbers(numbers_list) when is_list(numbers_list) do
-    with {:ok, numbers_list} <- check_list(numbers_list) do
-      numbers_list
-      |> Enum.reduce(0, fn x, acc -> acc + x end)
-    end
-  end
-
-  def check_list(numbers) when is_list(numbers) do
-    numbers
-    |> Enum.find_index(fn x -> x == :error end)
-    |> then(fn x ->
-      if x == nil, do: {:ok, numbers}, else: {:error, "Elements #{x} is not a number."}
-    end)
   end
 
   defp from_num_to_string(number) do
