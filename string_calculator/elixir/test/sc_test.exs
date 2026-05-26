@@ -71,5 +71,7 @@ defmodule SCTest do
               ]}
   end
 
-  # TODO: Add test to check tokenizer errors
+  test "user can choose the number separator with // operator" do
+    result = SC.add("//;\n1;2")
+  end
 end

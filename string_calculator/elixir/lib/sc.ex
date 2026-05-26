@@ -10,9 +10,11 @@ defmodule SC do
   end
 
   defp do_add(input) do
-    graphemes = String.graphemes(input)
+    {separator, graphemes} =
+      String.graphemes(input)
+      |> get_separator()
 
-    with {:ok, tokens} <- tokenize(graphemes),
+    with {:ok, tokens} <- tokenize(graphemes, separator),
          :ok <- check_tokens(tokens) do
       tokens |> add_numbers |> from_num_to_string
     else
@@ -30,26 +32,33 @@ defmodule SC do
         Enum.join(errors, "\n")
         |> then(&{:error, &1})
 
+      {:separator_error, error} ->
+        {:error, error}
+
       _ ->
         :unexpected_error
     end
   end
 
+  def get_separator(["/", "/", sep | rest]), do: {sep, rest}
+  def get_separator(tokens), do: {",", tokens}
+
   def tokenize(
         input,
+        separator \\ ",",
         tokens \\ [],
         current_token \\ %Token{value: "", position: 0, type: :num},
         position \\ 0
       )
 
-  def tokenize(input, _tokens, _current_token, _position)
+  def tokenize(input, separator, _tokens, _current_token, _position)
       when is_bitstring(input) do
     input
     |> String.graphemes()
-    |> tokenize()
+    |> tokenize(separator)
   end
 
-  def tokenize(input, tokens, %Token{} = current_token, _) when input == [] do
+  def tokenize(input, _separator, tokens, %Token{} = current_token, _) when input == [] do
     tokens = tokens ++ [current_token]
 
     if Enum.any?(tokens, &(&1.type == :error)) do
@@ -59,13 +68,15 @@ defmodule SC do
     end
   end
 
-  def tokenize(input, tokens, %Token{} = current_token, position) when is_list(input) do
+  def tokenize(input, separator, tokens, %Token{} = current_token, position)
+      when is_list(input) do
     [hd | tl] = input
 
     case hd do
-      "," when current_token.value != "" ->
+      ^separator when current_token.value != "" ->
         tokenize(
           tl,
+          separator,
           tokens ++ [current_token, %Token{value: ",", position: position, type: :sep}],
           Token.new(position + 1),
           position + 1
@@ -74,6 +85,7 @@ defmodule SC do
       "\n" when current_token.value != "" ->
         tokenize(
           tl,
+          separator,
           tokens ++ [current_token, %Token{value: "\n", position: position, type: :sep}],
           Token.new(position + 1),
           position + 1
@@ -82,6 +94,7 @@ defmodule SC do
       "," ->
         tokenize(
           tl,
+          separator,
           tokens ++ [%Token{value: ",", position: position, type: :sep}],
           Token.new(position + 1),
           position + 1
@@ -90,31 +103,47 @@ defmodule SC do
       "\n" ->
         tokenize(
           tl,
+          separator,
           tokens ++ [%Token{value: "\n", position: position, type: :sep}],
           Token.new(position + 1),
           position + 1
         )
 
       " " ->
-        tokenize(tl, tokens, current_token, position + 1)
+        tokenize(tl, separator, tokens, current_token, position + 1)
 
       hd ->
         cond do
           # 48 => '0' and 57 => '9'
           hd >= <<48>> && hd <= <<57>> ->
             new_value = current_token.value <> hd
-            tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
+
+            tokenize(
+              tl,
+              separator,
+              tokens,
+              %Token{current_token | value: new_value},
+              position + 1
+            )
 
           # 46 => '.'
           hd == <<46>> ->
             new_value = current_token.value <> hd
-            tokenize(tl, tokens, %Token{current_token | value: new_value}, position + 1)
+
+            tokenize(
+              tl,
+              separator,
+              tokens,
+              %Token{current_token | value: new_value},
+              position + 1
+            )
 
           true ->
             tokens = tokens ++ [%Token{value: hd, position: position, type: :error}]
 
             tokenize(
               tl,
+              separator,
               tokens,
               Token.new(position + 1),
               position + 1
