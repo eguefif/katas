@@ -64,4 +64,14 @@ defmodule SCTest do
     {:ok, result} = SC.add("//;1;2")
     assert result == "3"
   end
+
+  test "returns error if negative number present" do
+    {:error, result} = SC.add("1,3,-1,5")
+    assert result == "Negative not allowed : -1"
+  end
+
+  test "returns error if multiple negative number present" do
+    {:error, result} = SC.add("1,3,-1,5,-3")
+    assert result == "Negative not allowed : -1, -3"
+  end
 end
