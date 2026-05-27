@@ -3,6 +3,7 @@ defmodule SC.Tokenizer do
     tokenize(graphemes, separator)
   end
 
+  # Tokenizer *********************************************************
   def tokenize(
         input,
         separator \\ ",",
@@ -87,6 +88,8 @@ defmodule SC.Tokenizer do
     end
   end
 
+  # To numbers list *********************************************************
+
   defp to_numbers_list(tokens, errors \\ [], numbers \\ [])
 
   defp to_numbers_list(tokens, errors, numbers) when tokens == [],
@@ -95,16 +98,11 @@ defmodule SC.Tokenizer do
   defp to_numbers_list([last_element], errors, numbers) do
     {numbers, errors} =
       if Enum.member?([",", "\n"], last_element) do
-        {numbers,
-         errors ++ ["Number expected but EOF was found at position #{last_element.position}."]}
+        {numbers, add_error(errors, "EOF", last_element.position)}
       else
         case to_number(last_element.value) do
           {:error, _} ->
-            {numbers,
-             errors ++
-               [
-                 "Number expected but '#{last_element.value}' was found at position #{last_element.position}."
-               ]}
+            {numbers, add_error(errors, last_element.value, last_element.position)}
 
           num ->
             {numbers ++ [num], errors}
@@ -123,25 +121,24 @@ defmodule SC.Tokenizer do
         {:num, :sep} ->
           case to_number(hd.value) do
             {:error, _} ->
-              {numbers,
-               errors ++
-                 [
-                   "Number expected but '#{hd.value}' was found at position #{hd.position}."
-                 ]}
+              {numbers, add_error(errors, hd.value, hd.position)}
 
             num ->
               {numbers ++ [num], errors}
           end
 
         {:sep, _} ->
-          {numbers,
-           errors ++
-             [
-               "Number expected but '#{hd.value}' was found at position #{hd.position}."
-             ]}
+          {numbers, add_error(errors, hd.value, hd.position)}
       end
 
     to_numbers_list(tl, errors, numbers)
+  end
+
+  defp add_error(errors, value, position) do
+    errors ++
+      [
+        "Number expected but '#{value}' was found at position #{position}."
+      ]
   end
 
   defp to_number(number_str) do
