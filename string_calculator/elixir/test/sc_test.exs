@@ -74,4 +74,9 @@ defmodule SCTest do
     {:error, result} = SC.add("1,3,-1,5,-3")
     assert result == "Negative not allowed : -1, -3"
   end
+
+  test "multiply numbers" do
+    {:ok, result} = SC.multiply("1, 3, 5")
+    assert result == "15"
+  end
 end
