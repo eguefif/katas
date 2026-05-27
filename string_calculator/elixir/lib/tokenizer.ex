@@ -1,4 +1,8 @@
 defmodule SC.Tokenizer do
+  def get_numbers(graphemes, separator) do
+    tokenize(graphemes, separator)
+  end
+
   def tokenize(
         input,
         separator \\ ",",
@@ -17,17 +21,12 @@ defmodule SC.Tokenizer do
   def tokenize(input, _separator, tokens, %Token{} = current_token, _) when input == [] do
     tokens = tokens ++ [current_token]
 
-    errors =
-      tokens
-      |> Enum.filter(&(&1.type == :error))
-      |> Enum.map(&"Number expected but '#{&1.value}' was found at position #{&1.position}.")
+    {numbers, errors} = to_numbers_list(tokens)
 
-    errors = errors ++ check_tokens(tokens)
-
-    if Enum.count(errors) > 0 do
-      {:errors, errors |> Enum.join("\n")}
+    if errors == [] do
+      {:ok, numbers}
     else
-      {:ok, tokens}
+      {:error, errors |> Enum.join("\n")}
     end
   end
 
@@ -76,76 +75,88 @@ defmodule SC.Tokenizer do
         tokenize(tl, separator, tokens, current_token, position + 1)
 
       hd ->
-        cond do
-          # 48 => '0' and 57 => '9'
-          hd >= <<48>> && hd <= <<57>> ->
-            new_value = current_token.value <> hd
+        new_value = current_token.value <> hd
 
-            tokenize(
-              tl,
-              separator,
-              tokens,
-              %Token{current_token | value: new_value},
-              position + 1
-            )
-
-          # 46 => '.'
-          hd == <<46>> ->
-            new_value = current_token.value <> hd
-
-            tokenize(
-              tl,
-              separator,
-              tokens,
-              %Token{current_token | value: new_value},
-              position + 1
-            )
-
-          true ->
-            tokens = tokens ++ [%Token{value: hd, position: position, type: :error}]
-
-            tokenize(
-              tl,
-              separator,
-              tokens,
-              Token.new(position + 1),
-              position + 1
-            )
-        end
+        tokenize(
+          tl,
+          separator,
+          tokens,
+          %Token{current_token | value: new_value},
+          position + 1
+        )
     end
   end
 
-  defp check_tokens(tokens, errors \\ [])
+  defp to_numbers_list(tokens, errors \\ [], numbers \\ [])
 
-  defp check_tokens(tokens, errors) when tokens == [] and errors == [], do: errors
+  defp to_numbers_list(tokens, errors, numbers) when tokens == [],
+    do: {numbers, errors}
 
-  defp check_tokens([last_element], errors) do
-    errors =
+  defp to_numbers_list([last_element], errors, numbers) do
+    {numbers, errors} =
       if Enum.member?([",", "\n"], last_element) do
-        errors ++ ["Number expected but EOF was found at position #{last_element.position}."]
+        {numbers,
+         errors ++ ["Number expected but EOF was found at position #{last_element.position}."]}
       else
-        errors
+        case to_number(last_element.value) do
+          {:error, _} ->
+            {numbers,
+             errors ++
+               [
+                 "Number expected but '#{last_element.value}' was found at position #{last_element.position}."
+               ]}
+
+          num ->
+            {numbers ++ [num], errors}
+        end
       end
 
-    check_tokens([], errors)
+    to_numbers_list([], errors, numbers)
   end
 
-  defp check_tokens(tokens, errors) when length(tokens) >= 2 do
+  defp to_numbers_list(tokens, errors, numbers) when length(tokens) >= 2 do
     [hd | tl] = tokens
     [sep | tl] = tl
 
-    errors =
+    {numbers, errors} =
       case {hd.type, sep.type} do
         {:num, :sep} ->
-          errors
+          case to_number(hd.value) do
+            {:error, _} ->
+              {numbers,
+               errors ++
+                 [
+                   "Number expected but '#{hd.value}' was found at position #{hd.position}."
+                 ]}
+
+            num ->
+              {numbers ++ [num], errors}
+          end
 
         {:sep, _} ->
-          errors ++
-            [
-              "Number expected but '#{hd.value}' was found at position #{hd.position}."
-            ]
+          {numbers,
+           errors ++
+             [
+               "Number expected but '#{hd.value}' was found at position #{hd.position}."
+             ]}
       end
 
-    check_tokens(tl, errors)
+    to_numbers_list(tl, errors, numbers)
+  end
+
+  defp to_number(number_str) do
+    cond do
+      String.match?(number_str, ~r/[0-9]+[.]{1}[0-9]+/) ->
+        String.to_float(number_str)
+
+      String.match?(number_str, ~r/[0-9]+/) ->
+        String.to_integer(number_str)
+
+      number_str == "" ->
+        0
+
+      true ->
+        {:error, number_str}
+    end
   end
 end
