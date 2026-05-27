@@ -17,8 +17,15 @@ defmodule SC.Tokenizer do
   def tokenize(input, _separator, tokens, %Token{} = current_token, _) when input == [] do
     tokens = tokens ++ [current_token]
 
-    if Enum.any?(tokens, &(&1.type == :error)) do
-      {:tokenizer_error, tokens}
+    errors =
+      tokens
+      |> Enum.filter(&(&1.type == :error))
+      |> Enum.map(&"Number expected but '#{&1.value}' was found at position #{&1.position}.")
+
+    errors = errors ++ check_tokens(tokens)
+
+    if Enum.count(errors) > 0 do
+      {:errors, errors |> Enum.join("\n")}
     else
       {:ok, tokens}
     end
@@ -108,15 +115,11 @@ defmodule SC.Tokenizer do
     end
   end
 
-  def check_tokens(tokens, errors \\ [])
+  defp check_tokens(tokens, errors \\ [])
 
-  def check_tokens(tokens, errors) when tokens == [] and errors == [], do: :ok
+  defp check_tokens(tokens, errors) when tokens == [] and errors == [], do: errors
 
-  def check_tokens(tokens, errors) when tokens == [] do
-    {:check_error, errors}
-  end
-
-  def check_tokens([last_element], errors) do
+  defp check_tokens([last_element], errors) do
     errors =
       if Enum.member?([",", "\n"], last_element) do
         errors ++ ["Number expected but EOF was found at position #{last_element.position}."]
@@ -127,7 +130,7 @@ defmodule SC.Tokenizer do
     check_tokens([], errors)
   end
 
-  def check_tokens(tokens, errors) when length(tokens) >= 2 do
+  defp check_tokens(tokens, errors) when length(tokens) >= 2 do
     [hd | tl] = tokens
     [sep | tl] = tl
 

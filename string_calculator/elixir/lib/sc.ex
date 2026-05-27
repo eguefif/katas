@@ -16,29 +16,8 @@ defmodule SC do
       String.graphemes(input)
       |> get_separator()
 
-    with {:ok, tokens} <- Tokenizer.tokenize(graphemes, separator),
-         :ok <- Tokenizer.check_tokens(tokens) do
+    with {:ok, tokens} <- Tokenizer.tokenize(graphemes, separator) do
       tokens |> add_numbers |> from_num_to_string
-    else
-      {:tokenizer_error, tokens} ->
-        Enum.filter(tokens, fn %Token{type: type} ->
-          if type == :error, do: true, else: false
-        end)
-        |> Enum.map(fn %Token{value: value, position: idx} ->
-          "Number expected but '#{value}' was found at position #{idx}."
-        end)
-        |> Enum.join("\n")
-        |> then(&{:error, &1})
-
-      {:check_error, errors} ->
-        Enum.join(errors, "\n")
-        |> then(&{:error, &1})
-
-      {:separator_error, error} ->
-        {:error, error}
-
-      _ ->
-        :unexpected_error
     end
   end
 
