@@ -54,7 +54,7 @@ defmodule SCTest do
   end
 
   test "tokenizer" do
-    result = SC.tokenize("3,2,12.15\n32,21")
+    result = SC.Tokenizer.tokenize("3,2,12.15\n32,21")
 
     assert result ==
              {:ok,
@@ -72,6 +72,7 @@ defmodule SCTest do
   end
 
   test "user can choose the number separator with // operator" do
-    result = SC.add("//;\n1;2")
+    {:ok, result} = SC.add("//;1;2")
+    assert result == "3"
   end
 end
